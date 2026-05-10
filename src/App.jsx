@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "./components/BottomNav.jsx";
 import PetScene from "./components/PetScene.jsx";
 import PetVideo from "./components/PetVideo.jsx";
+import "./data/petDataFix.js";
 import {
   actionItems,
   getActionForReminder,
