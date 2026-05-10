@@ -55,13 +55,12 @@ export default function PetVideo({
   const [needsTap, setNeedsTap] = useState(false);
   const [activeSrc, setActiveSrc] = useState(src);
   const [stoppedByTap, setStoppedByTap] = useState(false);
-  const [useCanvasKeying, setUseCanvasKeying] = useState(false);
   const sourceList = [
     ...(Array.isArray(cutoutSources) ? cutoutSources : []),
     ...(cutoutSrc ? [cutoutSrc] : []),
   ].filter(Boolean);
   const isCutoutSource = activeSrc !== src && sourceList.includes(activeSrc);
-  const shouldUseCanvas = isCutoutSource && useCanvasKeying;
+  const shouldUseCanvas = isCutoutSource;
 
   function paintFrame(canvas, video, fitMode = "cover") {
     const ctx = canvas?.getContext("2d", { alpha: true, willReadFrequently: true });
@@ -87,7 +86,7 @@ export default function PetVideo({
     const drawHeight = videoHeight * scale;
     const drawX = Math.round((width - drawWidth) / 2);
     const drawY = Math.round((height - drawHeight) / 2);
-    const threshold = 24;
+    const threshold = 42;
 
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(video, drawX, drawY, drawWidth, drawHeight);
@@ -110,13 +109,6 @@ export default function PetVideo({
 
     ctx.putImageData(imageData, 0, 0);
   }
-
-  useEffect(() => {
-    const prefersCanvasKeying =
-      typeof window !== "undefined" &&
-      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-    setUseCanvasKeying(prefersCanvasKeying);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
