@@ -50,6 +50,9 @@ export default function PetVideo({
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const prefersTouchPoster =
+    typeof window !== "undefined" &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
   const [muted, setMuted] = useState(defaultMuted);
   const [hasError, setHasError] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
@@ -258,6 +261,17 @@ export default function PetVideo({
         isCutoutSource ? "is-cutout-video" : ""
       } ${clickToStop ? "click-to-stop" : ""} ${className}`}
     >
+      {prefersTouchPoster && poster && (
+        <img
+          src={poster}
+          alt="猫咪素材"
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 h-full w-full ${
+            objectFit === "contain" ? "object-contain" : "object-cover"
+          }`}
+        />
+      )}
+
       {hasError ? (
         <MediaPlaceholder poster={poster} />
       ) : shouldUseCanvas ? (
@@ -265,7 +279,7 @@ export default function PetVideo({
           <video
             ref={videoRef}
             src={activeSrc}
-            poster={poster}
+            poster={prefersTouchPoster ? poster : undefined}
             autoPlay={autoPlay}
             loop={loop}
             muted={muted}
@@ -291,7 +305,7 @@ export default function PetVideo({
         <video
           ref={videoRef}
           src={activeSrc}
-          poster={poster}
+          poster={prefersTouchPoster ? poster : undefined}
           autoPlay={autoPlay}
           loop={loop}
           muted={muted}
