@@ -62,6 +62,20 @@ export default function PetVideo({
   const isCutoutSource = activeSrc !== src && sourceList.includes(activeSrc);
   const shouldUseCanvas = isCutoutSource;
 
+  function canPlaySource(candidate) {
+    if (typeof document === "undefined") return true;
+    const video = document.createElement("video");
+    const lower = String(candidate).toLowerCase();
+    if (lower.endsWith(".mp4")) return video.canPlayType("video/mp4") !== "";
+    if (lower.endsWith(".mov")) return video.canPlayType("video/quicktime") !== "";
+    if (lower.endsWith(".webm")) return video.canPlayType("video/webm") !== "";
+    return true;
+  }
+
+  function pickSupportedSource(candidates) {
+    return candidates.find((candidate) => canPlaySource(candidate)) ?? candidates[0];
+  }
+
   function paintFrame(canvas, video, fitMode = "cover") {
     const ctx = canvas?.getContext("2d", { alpha: true, willReadFrequently: true });
     if (!canvas || !ctx || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
@@ -114,8 +128,8 @@ export default function PetVideo({
     setHasError(false);
     setNeedsTap(false);
     setStoppedByTap(false);
-    setActiveSrc(cutoutSrc || src);
-  }, [cutoutSrc, src]);
+    setActiveSrc(pickSupportedSource(sourceList) || cutoutSrc || src);
+  }, [cutoutSrc, src, sourceList.join("|")]);
 
   useEffect(() => {
     if (!shouldUseCanvas) return undefined;
