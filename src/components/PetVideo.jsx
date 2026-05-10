@@ -111,39 +111,11 @@ export default function PetVideo({
   }
 
   useEffect(() => {
-    let cancelled = false;
     setHasError(false);
     setNeedsTap(false);
     setStoppedByTap(false);
-    setActiveSrc(src);
-
-    if (!sourceList.length) return undefined;
-
-    async function pickFirstVideoSource() {
-      for (const candidate of sourceList) {
-        try {
-          const response = await fetch(candidate, { method: "HEAD" });
-          const contentType = response.headers.get("content-type") || "";
-          if (response.ok && contentType.startsWith("video/")) return candidate;
-        } catch {
-          // Try the next candidate.
-        }
-      }
-      throw new Error("没有可用的视频");
-    }
-
-    pickFirstVideoSource()
-      .then((candidate) => {
-        if (!cancelled) setActiveSrc(candidate);
-      })
-      .catch(() => {
-        if (!cancelled) setActiveSrc(src);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cutoutSrc, src, sourceList.join("|")]);
+    setActiveSrc(cutoutSrc || src);
+  }, [cutoutSrc, src]);
 
   useEffect(() => {
     if (!shouldUseCanvas) return undefined;
