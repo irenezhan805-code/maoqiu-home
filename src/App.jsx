@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "./components/BottomNav.jsx";
 import PetScene from "./components/PetScene.jsx";
 import PetVideo from "./components/PetVideo.jsx";
-import "./data/petDataFix.js";
 import {
   actionItems,
   getActionForReminder,
@@ -34,8 +33,18 @@ function toRoutineItems(template) {
   return template.items.map(([time, name, text]) => ({ time, name, text }));
 }
 
+function todayAlarmKey(id, time) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}-${id}-${time}`;
+}
+
 function toClockTime(date) {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
 }
 
 function toDateOnlyLabel(date) {
@@ -70,6 +79,10 @@ function isMealReminder(item) {
   return isMealReminderText(`${item.name} ${item.text}`);
 }
 
+function getReminderAsset(item) {
+  return getActionForReminder(item);
+}
+
 function buildReminderSchedule(reminders, petName) {
   const items = [];
 
@@ -82,10 +95,15 @@ function buildReminderSchedule(reminders, petName) {
     });
   }
 
-  if (reminders.activeRoutine && Array.isArray(reminders.routineItems) && reminders.routineItems.length) {
+  if (
+    reminders.activeRoutine &&
+    Array.isArray(reminders.routineItems) &&
+    reminders.routineItems.length
+  ) {
     reminders.routineItems.forEach((item, index) => {
       if (!item.time) return;
-      const duplicatesMeal = reminders.enabled && item.time === reminders.time && isMealReminder(item);
+      const duplicatesMeal =
+        reminders.enabled && item.time === reminders.time && isMealReminder(item);
       if (duplicatesMeal) return;
       items.push({
         id: `routine-${index}-${item.name}`,
@@ -102,7 +120,10 @@ function buildReminderSchedule(reminders, petName) {
 function getNextReminder(schedule, now = new Date()) {
   if (!schedule.length) return null;
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  return schedule.find((item) => clockToMinutes(item.time) >= currentMinutes) ?? schedule[0];
+  return (
+    schedule.find((item) => clockToMinutes(item.time) >= currentMinutes) ??
+    schedule[0]
+  );
 }
 
 function minutesUntilReminder(item, now = new Date()) {
@@ -121,7 +142,11 @@ function Header({ title, subtitle }) {
       <h1 className="mt-2 text-[38px] font-extrabold leading-tight tracking-[-0.02em] text-[var(--ink)]">
         {title}
       </h1>
-      {subtitle && <p className="mt-2 text-xl font-bold leading-8 text-[var(--muted)]">{subtitle}</p>}
+      {subtitle && (
+        <p className="mt-2 text-xl font-bold leading-8 text-[var(--muted)]">
+          {subtitle}
+        </p>
+      )}
     </header>
   );
 }
@@ -143,7 +168,14 @@ function Modal({ children, onClose, closeLabel = "我知道啦" }) {
   );
 }
 
-function TodayPage({ userName, petName, reminders, reminderSchedule, nextReminder, soundEnabled }) {
+function TodayPage({
+  userName,
+  petName,
+  reminders,
+  reminderSchedule,
+  nextReminder,
+  soundEnabled,
+}) {
   const [now, setNow] = useState(() => new Date());
   const [idleIndex, setIdleIndex] = useState(0);
   const [quieted, setQuieted] = useState(false);
@@ -163,7 +195,9 @@ function TodayPage({ userName, petName, reminders, reminderSchedule, nextReminde
 
   const activePet = useMemo(() => {
     const currentTime = toClockTime(now);
-    const currentReminder = reminderSchedule.find((item) => item.time === currentTime);
+    const currentReminder = reminderSchedule.find(
+      (item) => item.time === currentTime
+    );
 
     if (quieted) {
       return {
@@ -176,14 +210,18 @@ function TodayPage({ userName, petName, reminders, reminderSchedule, nextReminde
 
     if (currentReminder) {
       return {
-        asset: getActionForReminder(currentReminder),
+        asset: getReminderAsset(currentReminder),
         note: `${petName}在提醒：${currentReminder.name}`,
         muted: !reminders.reminderSound,
         autoPlay: true,
       };
     }
 
-    if (nextReminder && isMealReminder(nextReminder) && minutesUntilReminder(nextReminder, now) <= 30) {
+    if (
+      nextReminder &&
+      isMealReminder(nextReminder) &&
+      minutesUntilReminder(nextReminder, now) <= 30
+    ) {
       return {
         asset: petAssets.meal,
         note: `${petName}已经在旁边等吃饭时间。`,
@@ -199,21 +237,41 @@ function TodayPage({ userName, petName, reminders, reminderSchedule, nextReminde
       muted: !soundEnabled,
       autoPlay: true,
     };
-  }, [idleIndex, nextReminder, now, petName, quieted, reminderSchedule, reminders.reminderSound, soundEnabled]);
+  }, [
+    idleIndex,
+    nextReminder,
+    now,
+    petName,
+    quieted,
+    reminderSchedule,
+    reminders.reminderSound,
+    soundEnabled,
+  ]);
 
-  const currentWeekCard = weekdayHealingCards.find((card) => card.dayIndex === now.getDay()) ?? weekdayHealingCards[0];
-  const homeWeekCard = currentWeekCard ? { ...currentWeekCard, text: withPetName(currentWeekCard.text, petName) } : null;
+  const homeDateLine = toDateOnlyLabel(now);
+  const homeWeekdayLine = toWeekdayLabel(now);
+  const homeActivityLine = `${petName}${getHomeActivityLabel(activePet.asset)}。`;
+  const homeTalkLine = getHomeTalkLine(activePet.asset, petName, now);
+  const currentWeekCard =
+    weekdayHealingCards.find((card) => card.dayIndex === now.getDay()) ??
+    weekdayHealingCards[0];
+  const homeWeekCard = currentWeekCard
+    ? {
+        ...currentWeekCard,
+        text: withPetName(currentWeekCard.text, petName),
+      }
+    : null;
 
   return (
     <PetScene
       sceneType="home"
       videoSrc={petAssets.home.video}
       cutoutVideoSources={petAssets.home.cutoutVideos}
-      poster={undefined}
-      title={toDateOnlyLabel(now)}
-      subtitle={`${petName}${getHomeActivityLabel(activePet.asset)}。`}
-      homeNote={getHomeTalkLine(activePet.asset, petName, now)}
-      weekdayLabel={toWeekdayLabel(now)}
+      poster={activePet.asset.poster}
+      title={homeDateLine}
+      subtitle={homeActivityLine}
+      homeNote={homeTalkLine}
+      weekdayLabel={homeWeekdayLine}
       weekdayCard={homeWeekCard}
       reminderVideoSrc={activePet.asset.video}
       reminderCutoutVideoSources={activePet.asset.cutoutVideos}
@@ -232,7 +290,9 @@ function TodayPage({ userName, petName, reminders, reminderSchedule, nextReminde
 function ActionLibrarySection({ petName, onPreview }) {
   return (
     <section className="rounded-[36px] bg-white p-6 shadow-soft">
-      <h2 className="text-3xl font-extrabold text-[var(--ink)]">{petName}的动作素材</h2>
+      <h2 className="text-3xl font-extrabold text-[var(--ink)]">
+        {petName}的动作素材
+      </h2>
       <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">
         这里先用小井的 6 个小动作，未来可以替换成家里自己的猫猫狗狗。
       </p>
@@ -245,9 +305,15 @@ function ActionLibrarySection({ petName, onPreview }) {
             className="action-card relative min-h-[148px] overflow-visible rounded-[30px] bg-[var(--mint)] p-4 text-left shadow-soft"
           >
             <div className="relative z-20 max-w-[58%]">
-              <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-[var(--button)]">{item.shortName}</span>
-              <p className="mt-3 text-2xl font-extrabold text-[var(--ink)]">{item.name}</p>
-              <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">{withPetName(item.usage || item.text, petName)}</p>
+              <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-[var(--button)]">
+                {item.shortName}
+              </span>
+              <p className="mt-3 text-2xl font-extrabold text-[var(--ink)]">
+                {item.name}
+              </p>
+              <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">
+                {withPetName(item.usage || item.text, petName)}
+              </p>
             </div>
             <PetVideo
               src={item.video}
@@ -260,8 +326,12 @@ function ActionLibrarySection({ petName, onPreview }) {
               objectFit="contain"
             />
             <div className="absolute bottom-3 left-4 z-20 flex gap-2">
-              <span className="rounded-full bg-[var(--button)] px-4 py-2 text-sm font-bold text-white">预览动作</span>
-              <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-[var(--button)]">未来替换</span>
+              <span className="rounded-full bg-[var(--button)] px-4 py-2 text-sm font-bold text-white">
+                预览动作
+              </span>
+              <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-[var(--button)]">
+                未来替换
+              </span>
             </div>
           </button>
         ))}
@@ -279,13 +349,19 @@ function RemindersPage({ petName, reminders, setReminders }) {
 
   return (
     <div className="page-pad">
-      <Header title="吃饭提醒" subtitle={`给妈妈设一个固定时间，到点让${petName}轻轻叫一下。`} />
+      <Header
+        title="吃饭提醒"
+        subtitle={`给妈妈设一个固定时间，到点让${petName}轻轻叫一下。`}
+      />
+
       <section className="mx-6 mb-28 rounded-[36px] bg-white p-6 shadow-soft">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-base font-extrabold text-[var(--muted)]">当前状态</p>
             <h2 className="mt-2 text-3xl font-extrabold text-[var(--ink)]">每天提醒</h2>
-            <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">{reminders.enabled ? `${petName}会准时出现。` : `${petName}先安静陪着。`}</p>
+            <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">
+              {reminders.enabled ? `${petName}会准时出现。` : `${petName}先安静陪着。`}
+            </p>
           </div>
           <button
             type="button"
@@ -294,10 +370,16 @@ function RemindersPage({ petName, reminders, setReminders }) {
               updateReminder({ enabled });
               setHint(enabled ? `${petName}会准时提醒你。` : `好呀，${petName}先安静陪你。`);
             }}
-            className={`h-14 w-24 rounded-full p-1 transition ${reminders.enabled ? "bg-[var(--button)]" : "bg-[var(--line)]"}`}
+            className={`h-14 w-24 rounded-full p-1 transition ${
+              reminders.enabled ? "bg-[var(--button)]" : "bg-[var(--line)]"
+            }`}
             aria-label={reminders.enabled ? "关闭吃饭提醒" : "开启吃饭提醒"}
           >
-            <span className={`block h-12 w-12 rounded-full bg-white transition ${reminders.enabled ? "translate-x-10" : "translate-x-0"}`} />
+            <span
+              className={`block h-12 w-12 rounded-full bg-white transition ${
+                reminders.enabled ? "translate-x-10" : "translate-x-0"
+              }`}
+            />
           </button>
         </div>
 
@@ -318,10 +400,18 @@ function RemindersPage({ petName, reminders, setReminders }) {
         <div className="mt-5 rounded-[28px] bg-[var(--cream)] p-5">
           <p className="text-xl font-extrabold text-[var(--ink)]">到点会这样</p>
           <div className="mt-4 rounded-[26px] bg-white p-4 shadow-soft">
-            <p className="text-base font-extrabold text-[var(--muted)]">{reminders.time} 页面会弹出</p>
-            <p className="mt-2 text-2xl font-extrabold leading-8 text-[var(--ink)]">妈妈，该吃饭啦。</p>
-            <p className="mt-1 text-lg font-bold text-[var(--button)]">{petName}在等你。</p>
-            <div className="mt-4 rounded-full bg-[var(--button)] px-5 py-3 text-center text-lg font-extrabold text-white">我知道啦</div>
+            <p className="text-base font-extrabold text-[var(--muted)]">
+              {reminders.time} 页面会弹出
+            </p>
+            <p className="mt-2 text-2xl font-extrabold leading-8 text-[var(--ink)]">
+              妈妈，该吃饭啦。
+            </p>
+            <p className="mt-1 text-lg font-bold text-[var(--button)]">
+              {petName}在等你。
+            </p>
+            <div className="mt-4 rounded-full bg-[var(--button)] px-5 py-3 text-center text-lg font-extrabold text-white">
+              我知道啦
+            </div>
           </div>
           <div className="mt-4 grid gap-2 text-base font-bold leading-6 text-[var(--muted)]">
             <p>页面开着时会弹出轻轻叫提醒，点「我知道啦」就结束。</p>
@@ -334,7 +424,9 @@ function RemindersPage({ petName, reminders, setReminders }) {
             <BellRing size={24} />
             {reminders.enabled ? `${reminders.time} 轻轻叫` : "提醒已关闭"}
           </div>
-          <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">{hint}</p>
+          <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">
+            {hint}
+          </p>
         </div>
       </section>
     </div>
@@ -346,8 +438,13 @@ function RoutinePage({ petName, reminders, setReminders }) {
 
   function updateRoutineTime(index, time, fallbackItems) {
     setReminders((prev) => {
-      const currentItems = Array.isArray(prev.routineItems) && prev.routineItems.length ? prev.routineItems : fallbackItems;
-      const nextItems = currentItems.map((item, itemIndex) => (itemIndex === index ? { ...item, time } : item));
+      const currentItems =
+        Array.isArray(prev.routineItems) && prev.routineItems.length
+          ? prev.routineItems
+          : fallbackItems;
+      const nextItems = currentItems.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, time } : item
+      );
       return { ...prev, routineItems: nextItems };
     });
     setHint(`${petName}记住啦，这个时间改好了。`);
@@ -355,17 +452,33 @@ function RoutinePage({ petName, reminders, setReminders }) {
 
   return (
     <div className="page-pad">
-      <Header title={`${petName}作息陪伴`} subtitle={`早晨、午休、睡前，都让${petName}用不同小动作陪你。`} />
+      <Header
+        title={`${petName}作息陪伴`}
+        subtitle={`早晨、午休、睡前，都让${petName}用不同小动作陪你。`}
+      />
+
       <div className="grid gap-6 px-6 pb-28">
         {routineTemplates.map((template) => {
           const active = reminders.activeRoutine === template.id;
-          const displayItems = active && Array.isArray(reminders.routineItems) && reminders.routineItems.length ? reminders.routineItems : toRoutineItems(template);
+          const displayItems =
+            active && Array.isArray(reminders.routineItems) && reminders.routineItems.length
+              ? reminders.routineItems
+              : toRoutineItems(template);
           return (
-            <section key={template.id} className={`rounded-[36px] p-6 shadow-soft ${active ? "bg-[var(--mint)]" : "bg-white"}`}>
+            <section
+              key={template.id}
+              className={`rounded-[36px] p-6 shadow-soft ${
+                active ? "bg-[var(--mint)]" : "bg-white"
+              }`}
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-3xl font-extrabold leading-tight text-[var(--ink)]">{template.title}</h2>
-                  <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">{withPetName(template.description, petName)}</p>
+                  <h2 className="text-3xl font-extrabold leading-tight text-[var(--ink)]">
+                    {template.title}
+                  </h2>
+                  <p className="mt-2 text-lg font-bold leading-7 text-[var(--muted)]">
+                    {withPetName(template.description, petName)}
+                  </p>
                 </div>
                 {active && (
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--button)] text-white">
@@ -376,32 +489,49 @@ function RoutinePage({ petName, reminders, setReminders }) {
 
               <div className="mt-5 grid gap-3">
                 {displayItems.map(({ time, name, text }, index) => (
-                  <div key={`${template.id}-${time}-${name}`} className="flex gap-4 rounded-[24px] bg-white/78 px-4 py-4">
+                  <div
+                    key={`${template.id}-${time}-${name}`}
+                    className="flex gap-4 rounded-[24px] bg-white/78 px-4 py-4"
+                  >
                     {active ? (
                       <input
                         type="time"
                         value={time}
-                        onChange={(event) => updateRoutineTime(index, event.target.value, displayItems)}
+                        onChange={(event) =>
+                          updateRoutineTime(index, event.target.value, displayItems)
+                        }
                         className="min-h-12 w-[96px] rounded-[18px] border-2 border-[var(--line)] bg-[var(--cream)] px-2 text-xl font-extrabold text-[var(--button)] outline-none focus:border-[var(--button)]"
                         aria-label={`${name}时间`}
                       />
                     ) : (
-                      <div className="min-w-[72px] text-2xl font-extrabold text-[var(--button)]">{time}</div>
+                      <div className="min-w-[72px] text-2xl font-extrabold text-[var(--button)]">
+                        {time}
+                      </div>
                     )}
                     <div>
                       <p className="text-xl font-extrabold text-[var(--ink)]">{name}</p>
-                      <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">{withPetName(text, petName)}</p>
+                      <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">
+                        {withPetName(text, petName)}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {active && <p className="mt-4 rounded-full bg-white/70 px-4 py-3 text-center text-lg font-bold text-[var(--button)]">{hint} 时间可以直接点左边修改。</p>}
+              {active && (
+                <p className="mt-4 rounded-full bg-white/70 px-4 py-3 text-center text-lg font-bold text-[var(--button)]">
+                  {hint} 时间可以直接点左边修改。
+                </p>
+              )}
 
               <button
                 type="button"
                 onClick={() => {
-                  setReminders((prev) => ({ ...prev, activeRoutine: template.id, routineItems: toRoutineItems(template) }));
+                  setReminders((prev) => ({
+                    ...prev,
+                    activeRoutine: template.id,
+                    routineItems: toRoutineItems(template),
+                  }));
                   setHint(`好呀，${petName}陪你一起。`);
                 }}
                 className="mt-5 min-h-14 w-full rounded-full bg-[var(--button)] px-6 py-4 text-xl font-bold text-white"
@@ -418,16 +548,41 @@ function RoutinePage({ petName, reminders, setReminders }) {
 
 function SettingSwitch({ label, checked, onChange }) {
   return (
-    <button type="button" onClick={onChange} className="mt-5 flex min-h-16 w-full items-center justify-between rounded-[26px] bg-[var(--cream)] px-5 py-4 text-left">
+    <button
+      type="button"
+      onClick={onChange}
+      className="mt-5 flex min-h-16 w-full items-center justify-between rounded-[26px] bg-[var(--cream)] px-5 py-4 text-left"
+    >
       <span className="text-xl font-extrabold text-[var(--ink)]">{label}</span>
-      <span className={`h-12 w-20 rounded-full p-1 transition ${checked ? "bg-[var(--button)]" : "bg-[var(--line)]"}`}>
-        <span className={`block h-10 w-10 rounded-full bg-white transition ${checked ? "translate-x-8" : "translate-x-0"}`} />
+      <span
+        className={`h-12 w-20 rounded-full p-1 transition ${
+          checked ? "bg-[var(--button)]" : "bg-[var(--line)]"
+        }`}
+      >
+        <span
+          className={`block h-10 w-10 rounded-full bg-white transition ${
+            checked ? "translate-x-8" : "translate-x-0"
+          }`}
+        />
       </span>
     </button>
   );
 }
 
-function SettingsPage({ userName, setUserName, petName, setPetName, soundEnabled, setSoundEnabled, reminders, setReminders, selectedTheme, setSelectedTheme, showUpload, onPreview }) {
+function SettingsPage({
+  userName,
+  setUserName,
+  petName,
+  setPetName,
+  soundEnabled,
+  setSoundEnabled,
+  reminders,
+  setReminders,
+  selectedTheme,
+  setSelectedTheme,
+  showUpload,
+  onPreview,
+}) {
   const [draftUserName, setDraftUserName] = useState(userName);
   const [draftPetName, setDraftPetName] = useState(petName);
   const [hint, setHint] = useState(`${petName}已经在今日页等着啦。`);
@@ -437,39 +592,87 @@ function SettingsPage({ userName, setUserName, petName, setPetName, soundEnabled
     const nextPetName = draftPetName.trim() || "小井";
     setUserName(nextUserName);
     setPetName(nextPetName);
-    setReminders((prev) => ({ ...prev, text: withPetName(prev.text, nextPetName) }));
+    setReminders((prev) => ({
+      ...prev,
+      text: withPetName(prev.text, nextPetName),
+    }));
     setHint(`${nextPetName}记住啦，以后会陪着${nextUserName}。`);
   }
 
   return (
     <div className="page-pad">
-      <Header title={`设置${petName}`} subtitle={`${petName}在家等着，慢慢把它调成你熟悉的样子。`} />
+      <Header
+        title={`设置${petName}`}
+        subtitle={`${petName}在家等着，慢慢把它调成你熟悉的样子。`}
+      />
+
       <div className="grid gap-5 px-6 pb-28">
         <section className="rounded-[36px] bg-white p-6 shadow-soft">
           <h2 className="text-3xl font-extrabold text-[var(--ink)]">{petName}信息</h2>
           <label className="mt-5 block">
             <span className="text-lg font-extrabold text-[var(--ink)]">昵称</span>
-            <input value={draftUserName} onChange={(event) => setDraftUserName(event.target.value)} placeholder="请输入你的昵称" className="mt-3 min-h-14 w-full rounded-[24px] border-2 border-[var(--line)] bg-[var(--cream)] px-5 text-xl font-bold text-[var(--ink)] outline-none focus:border-[var(--button)]" />
+            <input
+              value={draftUserName}
+              onChange={(event) => setDraftUserName(event.target.value)}
+              placeholder="请输入你的昵称"
+              className="mt-3 min-h-14 w-full rounded-[24px] border-2 border-[var(--line)] bg-[var(--cream)] px-5 text-xl font-bold text-[var(--ink)] outline-none focus:border-[var(--button)]"
+            />
           </label>
           <label className="mt-5 block">
             <span className="text-lg font-extrabold text-[var(--ink)]">猫咪名字</span>
-            <input value={draftPetName} onChange={(event) => setDraftPetName(event.target.value)} placeholder="请输入猫咪名字" className="mt-3 min-h-14 w-full rounded-[24px] border-2 border-[var(--line)] bg-[var(--cream)] px-5 text-xl font-bold text-[var(--ink)] outline-none focus:border-[var(--button)]" />
+            <input
+              value={draftPetName}
+              onChange={(event) => setDraftPetName(event.target.value)}
+              placeholder="请输入猫咪名字"
+              className="mt-3 min-h-14 w-full rounded-[24px] border-2 border-[var(--line)] bg-[var(--cream)] px-5 text-xl font-bold text-[var(--ink)] outline-none focus:border-[var(--button)]"
+            />
           </label>
-          <button type="button" onClick={saveInfo} className="mt-5 min-h-14 w-full rounded-full bg-[var(--button)] px-6 py-4 text-xl font-bold text-white">保存信息</button>
-          <p className="mt-4 rounded-full bg-[var(--mint)] px-4 py-3 text-center text-lg font-bold text-[var(--button)]">{hint}</p>
+          <button
+            type="button"
+            onClick={saveInfo}
+            className="mt-5 min-h-14 w-full rounded-full bg-[var(--button)] px-6 py-4 text-xl font-bold text-white"
+          >
+            保存信息
+          </button>
+          <p className="mt-4 rounded-full bg-[var(--mint)] px-4 py-3 text-center text-lg font-bold text-[var(--button)]">
+            {hint}
+          </p>
         </section>
 
         <section className="rounded-[36px] bg-white p-6 shadow-soft">
           <h2 className="text-3xl font-extrabold text-[var(--ink)]">声音设置</h2>
-          <SettingSwitch label="首页默认静音" checked={!soundEnabled} onChange={() => setSoundEnabled((prev) => !prev)} />
-          <SettingSwitch label={`提醒时播放${petName}声音`} checked={reminders.reminderSound} onChange={() => setReminders((prev) => ({ ...prev, reminderSound: !prev.reminderSound }))} />
+          <SettingSwitch
+            label="首页默认静音"
+            checked={!soundEnabled}
+            onChange={() => setSoundEnabled((prev) => !prev)}
+          />
+          <SettingSwitch
+            label={`提醒时播放${petName}声音`}
+            checked={reminders.reminderSound}
+            onChange={() =>
+              setReminders((prev) => ({
+                ...prev,
+                reminderSound: !prev.reminderSound,
+              }))
+            }
+          />
         </section>
 
         <section className="rounded-[36px] bg-white p-6 shadow-soft">
           <h2 className="text-3xl font-extrabold text-[var(--ink)]">体验版说明</h2>
-          <p className="mt-3 text-xl font-bold leading-8 text-[var(--muted)]">当前是“小井在家”体验版，后续可以上传你家自己的猫猫狗狗。</p>
-          <button type="button" onClick={showUpload} className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--button)] px-6 py-4 text-xl font-bold text-white"><Upload size={24} /> 上传家里的它</button>
-          <p className="mt-4 rounded-[24px] bg-[var(--cream)] px-4 py-4 text-base font-bold leading-7 text-[var(--muted)]">如果你想把小井放到手机桌面：用 Safari 或 Chrome 打开本页面，点击分享按钮，选择添加到主屏幕。</p>
+          <p className="mt-3 text-xl font-bold leading-8 text-[var(--muted)]">
+            当前是“小井在家”体验版，后续可以上传你家自己的猫猫狗狗。
+          </p>
+          <button
+            type="button"
+            onClick={showUpload}
+            className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--button)] px-6 py-4 text-xl font-bold text-white"
+          >
+            <Upload size={24} /> 上传家里的它
+          </button>
+          <p className="mt-4 rounded-[24px] bg-[var(--cream)] px-4 py-4 text-base font-bold leading-7 text-[var(--muted)]">
+            如果你想把小井放到手机桌面：用 Safari 或 Chrome 打开本页面，点击分享按钮，选择添加到主屏幕。
+          </p>
         </section>
 
         <ActionLibrarySection petName={petName} onPreview={onPreview} />
@@ -480,17 +683,29 @@ function SettingsPage({ userName, setUserName, petName, setPetName, soundEnabled
             {styleOptions.map((option) => {
               const active = selectedTheme === option.id;
               return (
-                <button key={option.id} type="button" onClick={() => setSelectedTheme(option.id)} className={`rounded-[26px] p-4 text-left transition ${active ? "bg-[var(--mint)]" : "bg-[var(--cream)]"}`}>
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSelectedTheme(option.id)}
+                  className={`rounded-[26px] p-4 text-left transition ${
+                    active ? "bg-[var(--mint)]" : "bg-[var(--cream)]"
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xl font-extrabold text-[var(--ink)]">{option.name}</p>
+                    <p className="text-xl font-extrabold text-[var(--ink)]">
+                      {option.name}
+                    </p>
                     {active && <Check className="text-[var(--button)]" size={24} />}
                   </div>
-                  <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">{option.description}</p>
+                  <p className="mt-1 text-base font-bold leading-6 text-[var(--muted)]">
+                    {option.description}
+                  </p>
                 </button>
               );
             })}
           </div>
         </section>
+
       </div>
     </div>
   );
@@ -498,13 +713,17 @@ function SettingsPage({ userName, setUserName, petName, setPetName, soundEnabled
 
 function PreviewOverlay({ item, petName, onClose }) {
   if (!item) return null;
+
   return (
     <PetScene
       sceneType={item.sceneType}
       videoSrc={item.video}
       cutoutVideoSources={item.cutoutVideos}
       poster={item.poster}
-      title={withPetName(item.previewTitle || item.name, petName).replaceAll("{userName}", "淡淡")}
+      title={withPetName(item.previewTitle || item.name, petName).replaceAll(
+        "{userName}",
+        "淡淡"
+      )}
       subtitle={withPetName(item.previewSubtitle || item.text, petName)}
       actionText="关闭预览"
       onAction={onClose}
@@ -520,10 +739,14 @@ export default function App() {
   const [userName, setUserName] = useLocalStorage("app_user_name", "淡淡");
   const [petName, setPetName] = useLocalStorage("app_pet_name", "小井");
   const [soundEnabled, setSoundEnabled] = useLocalStorage("app_sound_enabled", true);
-  const [selectedTheme, setSelectedTheme] = useLocalStorage("app_selected_theme", "creamGreen");
+  const [selectedTheme, setSelectedTheme] = useLocalStorage(
+    "app_selected_theme",
+    "creamGreen"
+  );
   const [reminders, setReminders] = useLocalStorage("app_reminders", defaultReminders);
   const [preview, setPreview] = useState(null);
   const [uploadNotice, setUploadNotice] = useState(false);
+  const [activeAlarm, setActiveAlarm] = useState(null);
 
   useEffect(() => {
     if (!window.localStorage.getItem("app_sound_default_on_applied")) {
@@ -534,19 +757,56 @@ export default function App() {
 
   const normalizedReminders = {
     ...defaultReminders,
-    ...(reminders && typeof reminders === "object" && !Array.isArray(reminders) ? reminders : {}),
+    ...(reminders && typeof reminders === "object" && !Array.isArray(reminders)
+      ? reminders
+      : {}),
   };
 
-  const reminderSchedule = useMemo(() => buildReminderSchedule(normalizedReminders, petName), [
-    normalizedReminders.activeRoutine,
-    normalizedReminders.enabled,
-    normalizedReminders.routineItems,
-    normalizedReminders.time,
-    petName,
-  ]);
+  const reminderSchedule = useMemo(
+    () => buildReminderSchedule(normalizedReminders, petName),
+    [
+      normalizedReminders.activeRoutine,
+      normalizedReminders.enabled,
+      normalizedReminders.routineItems,
+      normalizedReminders.time,
+      petName,
+    ]
+  );
+  const nextReminder = useMemo(
+    () => getNextReminder(reminderSchedule),
+    [reminderSchedule]
+  );
 
-  const nextReminder = useMemo(() => getNextReminder(reminderSchedule), [reminderSchedule]);
-  const appClass = useMemo(() => `app-shell theme-${selectedTheme || "creamGreen"}`, [selectedTheme]);
+  useEffect(() => {
+    if (!reminderSchedule.length) return undefined;
+
+    function checkAlarms() {
+      const now = new Date();
+      const currentTime = toClockTime(now);
+      const dueReminder = reminderSchedule.find((item) => item.time === currentTime);
+
+      if (!dueReminder) return;
+
+      const alarmKey = todayAlarmKey(dueReminder.id, dueReminder.time);
+      const lastAlarmKey = window.localStorage.getItem("app_last_alarm_key");
+
+      if (lastAlarmKey !== alarmKey) {
+        window.localStorage.setItem("app_last_alarm_key", alarmKey);
+        setActiveAlarm(dueReminder);
+      }
+    }
+
+    checkAlarms();
+    const timer = window.setInterval(checkAlarms, 10000);
+    return () => window.clearInterval(timer);
+  }, [reminderSchedule]);
+
+  const appClass = useMemo(
+    () => `app-shell theme-${selectedTheme || "creamGreen"}`,
+    [selectedTheme]
+  );
+
+  const activeAlarmAsset = activeAlarm ? getReminderAsset(activeAlarm) : null;
 
   return (
     <div className={appClass}>
@@ -562,10 +822,18 @@ export default function App() {
           />
         )}
         {activeTab === "reminders" && (
-          <RemindersPage petName={petName} reminders={normalizedReminders} setReminders={setReminders} />
+          <RemindersPage
+            petName={petName}
+            reminders={normalizedReminders}
+            setReminders={setReminders}
+          />
         )}
         {activeTab === "routine" && (
-          <RoutinePage petName={petName} reminders={normalizedReminders} setReminders={setReminders} />
+          <RoutinePage
+            petName={petName}
+            reminders={normalizedReminders}
+            setReminders={setReminders}
+          />
         )}
         {activeTab === "settings" && (
           <SettingsPage
@@ -586,7 +854,31 @@ export default function App() {
 
         <BottomNav activeTab={activeTab} onChange={setActiveTab} />
 
-        <PreviewOverlay item={preview} petName={petName} onClose={() => setPreview(null)} />
+        {activeAlarm && activeAlarmAsset && (
+          <PetScene
+            sceneType="meal"
+            videoSrc={activeAlarmAsset.video}
+            cutoutVideoSources={activeAlarmAsset.cutoutVideos}
+            poster={activeAlarmAsset.poster}
+            title={isMealReminder(activeAlarm) ? "妈妈，该吃饭啦。" : activeAlarm.text}
+            subtitle={
+              isMealReminder(activeAlarm)
+                ? `${petName}在等你。`
+                : `${activeAlarm.time} ${activeAlarm.name}`
+            }
+            actionText="我知道啦"
+            onAction={() => setActiveAlarm(null)}
+            defaultMuted={!normalizedReminders.reminderSound}
+            volume={0.9}
+            petName={petName}
+          />
+        )}
+
+        <PreviewOverlay
+          item={preview}
+          petName={petName}
+          onClose={() => setPreview(null)}
+        />
 
         {uploadNotice && (
           <Modal onClose={() => setUploadNotice(false)} closeLabel="暂未开放">
@@ -595,8 +887,12 @@ export default function App() {
                 <Heart size={34} fill="currentColor" />
               </div>
             </div>
-            <h2 className="mt-5 text-center text-3xl font-extrabold leading-tight">V0.1 暂未开放上传功能</h2>
-            <p className="mt-3 text-center text-xl font-bold leading-8 text-[var(--muted)]">当前先使用{petName}专属素材体验。</p>
+            <h2 className="mt-5 text-center text-3xl font-extrabold leading-tight">
+              V0.1 暂未开放上传功能
+            </h2>
+            <p className="mt-3 text-center text-xl font-bold leading-8 text-[var(--muted)]">
+              当前先使用{petName}专属素材体验。
+            </p>
           </Modal>
         )}
       </div>
